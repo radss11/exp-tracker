@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Expense Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container">
+
+  <h1>Expense Tracker</h1>
+
+  <div class="card">
+    <h2>Set Budget</h2>
+    <div class="row">
+      <input type="number" id="budgetInput" placeholder="Enter budget">
+      <button onclick="setBudget()">Save Budget</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Add Expense</h2>
+    <div class="row">
+      <input placeholder="Title" id="title">
+      <select id="category">
+  <option value="">Select Category</option>
+  <option value="medicine">Medicine</option>
+  <option value="fuel">Fuel</option>
+  <option value="household">Household</option>
+  <option value="academic">Academic</option>
+  <option value="food">Food</option>
+  <option value="electricity">Electricity</option>
+  <option value="water bills">Water Bills</option>
+  <option value="general">General</option>
+</select>
+
+      <input type="number" placeholder="Amount" id="amount">
+      <input type="date" id="date">
+      <button onclick="addExpense()">Add</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Summary</h2>
+    <p id="remaining"></p>
+
+    <div class="chart-container">
+      <canvas id="chart" width="300" height="300"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="script.js"></script>
+
+</body>
+</html>
