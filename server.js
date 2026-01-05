@@ -29,9 +29,11 @@ db.run(`
   CREATE TABLE IF NOT EXISTS budget (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
+    month TEXT,
     amount INTEGER
   )
 `);
+
 
 // Expenses table (linked to user)
 db.run(`
@@ -75,30 +77,34 @@ app.post("/login", (req, res) => {
 
 
 app.post("/budget", (req, res) => {
-  const { amount, userId } = req.body;
+  const { userId, month, amount } = req.body;
 
-  db.run("DELETE FROM budget WHERE user_id=?", [userId]);
   db.run(
-    "INSERT INTO budget (user_id, amount) VALUES (?, ?)",
-    [userId, amount]
+    "DELETE FROM budget WHERE user_id=? AND month=?",
+    [userId, month]
   );
 
-  res.send({ message: "Budget set" });
+  db.run(
+    "INSERT INTO budget (user_id, month, amount) VALUES (?, ?, ?)",
+    [userId, month, amount]
+  );
+
+  res.send({ message: "Monthly budget set" });
 });
 
 
-app.get("/budget/:userId", (req, res) => {
-  const userId = req.params.userId;
+
+app.get("/budget/:userId/:month", (req, res) => {
+  const { userId, month } = req.params;
 
   db.get(
-    "SELECT amount FROM budget WHERE user_id=?",
-    [userId],
+    "SELECT amount FROM budget WHERE user_id=? AND month=?",
+    [userId, month],
     (err, row) => {
       res.send(row || { amount: 0 });
     }
   );
 });
-
 
 app.post("/expense", (req, res) => {
   const { title, category, amount, date, userId } = req.body;
