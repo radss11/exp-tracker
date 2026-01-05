@@ -1,21 +1,23 @@
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
-const cors = require("cors");
+const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-
 // Middleware
-app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// Database
-const db = new sqlite3.Database("./database.db");
+// Redirect root to login
+app.get("/", (req, res) => {
+  res.redirect("/login.html");
+});
 
-// Create tables
-// Users table
+// Database
+const db = new sqlite3.Database("database.db");
+
+// USERS TABLE
 db.run(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,18 +26,7 @@ db.run(`
   )
 `);
 
-// Budget table (linked to user)
-db.run(`
-  CREATE TABLE IF NOT EXISTS budget (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    month TEXT,
-    amount INTEGER
-  )
-`);
-
-
-// Expenses table (linked to user)
+// EXPENSES TABLE
 db.run(`
   CREATE TABLE IF NOT EXISTS expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +38,19 @@ db.run(`
   )
 `);
 
+// MONTH-WISE BUDGET TABLE
+db.run(`
+  CREATE TABLE IF NOT EXISTS budget (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    month TEXT,
+    amount INTEGER
+  )
+`);
+
+/* ---------------- AUTH ---------------- */
+
+// SIGNUP
 app.post("/signup", (req, res) => {
   const { username, password } = req.body;
 
@@ -61,39 +65,49 @@ app.post("/signup", (req, res) => {
     }
   );
 });
+
+// LOGIN
 app.post("/login", (req, res) => {
-  const { username, password } = req.body;  
+  const { username, password } = req.body;
+
   db.get(
-    "SELECT id FROM users WHERE username = ? AND password = ?",
-    [username, password],   
+    "SELECT * FROM users WHERE username=? AND password=?",
+    [username, password],
     (err, row) => {
-      if (err || !row) {
-        return res.status(400).send({ message: "Invalid credentials" });
-      }   
+      if (!row) {
+        return res.status(401).send({ message: "Invalid credentials" });
+      }
       res.send({ userId: row.id });
     }
   );
 });
 
+/* ---------------- BUDGET ---------------- */
 
+// SET MONTHLY BUDGET
 app.post("/budget", (req, res) => {
   const { userId, month, amount } = req.body;
 
+  if (!userId || !month || !amount) {
+    return res.status(400).send({ message: "Missing budget data" });
+  }
+
   db.run(
     "DELETE FROM budget WHERE user_id=? AND month=?",
-    [userId, month]
+    [userId, month],
+    () => {
+      db.run(
+        "INSERT INTO budget (user_id, month, amount) VALUES (?, ?, ?)",
+        [userId, month, amount],
+        () => {
+          res.send({ message: "Monthly budget set" });
+        }
+      );
+    }
   );
-
-  db.run(
-    "INSERT INTO budget (user_id, month, amount) VALUES (?, ?, ?)",
-    [userId, month, amount]
-  );
-
-  res.send({ message: "Monthly budget set" });
 });
 
-
-
+// GET MONTHLY BUDGET
 app.get("/budget/:userId/:month", (req, res) => {
   const { userId, month } = req.params;
 
@@ -106,18 +120,22 @@ app.get("/budget/:userId/:month", (req, res) => {
   );
 });
 
+/* ---------------- EXPENSES ---------------- */
+
+// ADD EXPENSE
 app.post("/expense", (req, res) => {
   const { title, category, amount, date, userId } = req.body;
 
   db.run(
-    "INSERT INTO expenses (user_id, title, category, amount, date) VALUES (?, ?, ?, ?, ?)",
-    [userId, title, category, amount, date]
+    "INSERT INTO expenses (title, category, amount, date, user_id) VALUES (?, ?, ?, ?, ?)",
+    [title, category, amount, date, userId],
+    () => {
+      res.send({ message: "Expense added" });
+    }
   );
-
-  res.send({ message: "Expense added" });
 });
 
-
+// GET USER EXPENSES
 app.get("/expenses/:userId", (req, res) => {
   const userId = req.params.userId;
 
@@ -130,22 +148,8 @@ app.get("/expenses/:userId", (req, res) => {
   );
 });
 
-
-// Monthly summary
-app.get("/summary/:month", (req, res) => {
-  const month = req.params.month;
-  db.all(
-    `SELECT category, SUM(amount) as total 
-     FROM expenses 
-     WHERE date LIKE ?
-     GROUP BY category`,
-    [`${month}%`],
-    (err, rows) => {
-      res.send(rows);
-    }
-  );
-});
+/* ---------------- SERVER ---------------- */
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
