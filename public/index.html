@@ -1,59 +1,160 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>Expense Tracker</title>
-  <link rel="stylesheet" href="style.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+    }
+
+    header {
+      background: #2c3e50;
+      color: white;
+      padding: 15px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h2 {
+      margin: 0;
+    }
+
+    header button {
+      background: #e74c3c;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.08);
+    }
+
+    .card h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin: 6px 0;
+    }
+
+    button {
+      background: #3498db;
+      border: none;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .chart-box {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 300px;
+    }
+
+    canvas {
+      max-width: 260px;
+      max-height: 260px;
+    }
+
+    .info {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    @media (max-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
 
+<header>
+  <h2>Expense Tracker</h2>
+  <button onclick="logout()">Logout</button>
+</header>
+
 <div class="container">
 
-  <h1>Expense Tracker</h1>
-
+  <!-- Month + Budget -->
   <div class="card">
-    <h2>Set Budget</h2>
-    <div class="row">
-      <input type="month" id="budgetMonth">
-<input type="number" id="budgetInput" placeholder="Monthly Budget">
-<button onclick="setBudget()">Save Budget</button>
-
-    </div>
+    <h3>Select Month & Budget</h3>
+    <input id="month" type="month">
+    <input id="budget" type="number" placeholder="Monthly Budget">
+    <button onclick="saveBudget()">Save Budget</button>
+    <p id="budgetInfo" class="info"></p>
   </div>
 
-  <div class="card">
-    <h2>Add Expense</h2>
-    <div class="row">
-      <input placeholder="Title" id="title">
+  <br>
+
+  <div class="grid">
+
+    <!-- Add Expense -->
+    <div class="card">
+      <h3>Add Expense</h3>
+
+      <input id="title" placeholder="Expense title">
+
       <select id="category">
-  <option value="">Select Category</option>
-  <option value="medicine">Medicine</option>
-  <option value="fuel">Fuel</option>
-  <option value="household">Household</option>
-  <option value="academic">Academic</option>
-  <option value="food">Food</option>
-  <option value="electricity">Electricity</option>
-  <option value="water bills">Water Bills</option>
-  <option value="general">General</option>
-</select>
+        <option value="medicine">Medicine</option>
+        <option value="fuel">Fuel</option>
+        <option value="household">Household</option>
+        <option value="academic">Academic</option>
+        <option value="food">Food</option>
+        <option value="electricity">Electricity</option>
+        <option value="water">Water Bills</option>
+        <option value="general">General</option>
+      </select>
 
-      <input type="number" placeholder="Amount" id="amount">
-      <input type="date" id="date">
-      <button onclick="addExpense()">Add</button>
+      <input id="amount" type="number" placeholder="Amount">
+      <input id="date" type="date">
+
+      <button onclick="addExpense()">Add Expense</button>
     </div>
-  </div>
 
-  <div class="card">
-    <h2>Summary</h2>
-    <p id="remaining"></p>
-
-    <div class="chart-container">
-      <canvas id="chart" width="300" height="300"></canvas>
+    <!-- Chart -->
+    <div class="card">
+      <h3>Expense Distribution</h3>
+      <div class="chart-box">
+        <canvas id="chart"></canvas>
+      </div>
     </div>
-  </div>
 
+  </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Main JS -->
 <script src="script.js"></script>
 
 </body>
