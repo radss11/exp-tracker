@@ -1,96 +1,105 @@
 const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
+const jwt = require("jsonwebtoken");
 const path = require("path");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const SECRET = "exp_tracker_secret_key"; // OK for project/demo
 
 // Middleware
 app.use(express.json());
 app.use(express.static("public"));
 
-// Redirect root to login
-app.get("/", (req, res) => {
-  res.redirect("/login.html");
-});
-
 // Database
 const db = new sqlite3.Database("database.db");
 
-// USERS TABLE
+// ---------- TABLES ----------
+
+// Users
 db.run(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE,
-    password TEXT
-  )
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT UNIQUE,
+  password TEXT
+)
 `);
 
-// EXPENSES TABLE
+// Budgets (month-wise)
 db.run(`
-  CREATE TABLE IF NOT EXISTS expenses (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    title TEXT,
-    category TEXT,
-    amount INTEGER,
-    date TEXT
-  )
+CREATE TABLE IF NOT EXISTS budget (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  month TEXT,
+  amount INTEGER
+)
 `);
 
-// MONTH-WISE BUDGET TABLE
+// Expenses
 db.run(`
-  CREATE TABLE IF NOT EXISTS budget (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    month TEXT,
-    amount INTEGER
-  )
+CREATE TABLE IF NOT EXISTS expenses (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER,
+  title TEXT,
+  category TEXT,
+  amount INTEGER,
+  date TEXT
+)
 `);
 
-/* ---------------- AUTH ---------------- */
+// ---------- AUTH MIDDLEWARE ----------
 
-// SIGNUP
+function auth(req, res, next) {
+  const token = req.headers.authorization;
+  if (!token) return res.status(401).send({ error: "No token" });
+
+  try {
+    const decoded = jwt.verify(token, SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch {
+    res.status(401).send({ error: "Invalid token" });
+  }
+}
+
+// ---------- AUTH ROUTES ----------
+
+// Signup
 app.post("/signup", (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
 
   db.run(
-    "INSERT INTO users (username, password) VALUES (?, ?)",
-    [username, password],
+    "INSERT INTO users (email, password) VALUES (?, ?)",
+    [email, password],
     function (err) {
-      if (err) {
-        return res.status(400).send({ message: "User already exists" });
-      }
-      res.send({ userId: this.lastID });
+      if (err) return res.status(400).send({ error: "User already exists" });
+      res.send({ message: "Signup successful" });
     }
   );
 });
 
-// LOGIN
+// Login
 app.post("/login", (req, res) => {
-  const { username, password } = req.body;
+  const { email, password } = req.body;
 
   db.get(
-    "SELECT * FROM users WHERE username=? AND password=?",
-    [username, password],
-    (err, row) => {
-      if (!row) {
-        return res.status(401).send({ message: "Invalid credentials" });
-      }
-      res.send({ userId: row.id });
+    "SELECT * FROM users WHERE email=? AND password=?",
+    [email, password],
+    (err, user) => {
+      if (!user) return res.status(401).send({ error: "Invalid credentials" });
+
+      const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1d" });
+      res.send({ token });
     }
   );
 });
 
-/* ---------------- BUDGET ---------------- */
+// ---------- BUDGET ROUTES ----------
 
-// SET MONTHLY BUDGET
-app.post("/budget", (req, res) => {
-  const { userId, month, amount } = req.body;
-
-  if (!userId || !month || !amount) {
-    return res.status(400).send({ message: "Missing budget data" });
-  }
+// Set monthly budget
+app.post("/budget", auth, (req, res) => {
+  const { month, amount } = req.body;
+  const userId = req.userId;
 
   db.run(
     "DELETE FROM budget WHERE user_id=? AND month=?",
@@ -99,17 +108,16 @@ app.post("/budget", (req, res) => {
       db.run(
         "INSERT INTO budget (user_id, month, amount) VALUES (?, ?, ?)",
         [userId, month, amount],
-        () => {
-          res.send({ message: "Monthly budget set" });
-        }
+        () => res.send({ message: "Monthly budget saved" })
       );
     }
   );
 });
 
-// GET MONTHLY BUDGET
-app.get("/budget/:userId/:month", (req, res) => {
-  const { userId, month } = req.params;
+// Get monthly budget
+app.get("/budget/:month", auth, (req, res) => {
+  const { month } = req.params;
+  const userId = req.userId;
 
   db.get(
     "SELECT amount FROM budget WHERE user_id=? AND month=?",
@@ -120,36 +128,47 @@ app.get("/budget/:userId/:month", (req, res) => {
   );
 });
 
-/* ---------------- EXPENSES ---------------- */
+// ---------- EXPENSE ROUTES ----------
 
-// ADD EXPENSE
-app.post("/expense", (req, res) => {
-  const { title, category, amount, date, userId } = req.body;
+// Add expense
+app.post("/expense", auth, (req, res) => {
+  const { title, category, amount, date } = req.body;
+  const userId = req.userId;
 
   db.run(
-    "INSERT INTO expenses (title, category, amount, date, user_id) VALUES (?, ?, ?, ?, ?)",
-    [title, category, amount, date, userId],
-    () => {
-      res.send({ message: "Expense added" });
-    }
+    "INSERT INTO expenses (user_id, title, category, amount, date) VALUES (?, ?, ?, ?, ?)",
+    [userId, title, category, amount, date],
+    () => res.send({ message: "Expense added" })
   );
 });
 
-// GET USER EXPENSES
-app.get("/expenses/:userId", (req, res) => {
-  const userId = req.params.userId;
+// Get expenses by month
+app.get("/expenses/:month", auth, (req, res) => {
+  const { month } = req.params;
+  const userId = req.userId;
 
   db.all(
-    "SELECT * FROM expenses WHERE user_id=?",
-    [userId],
-    (err, rows) => {
-      res.send(rows);
-    }
+    `
+    SELECT * FROM expenses 
+    WHERE user_id=? AND substr(date,1,7)=?
+    `,
+    [userId, month],
+    (err, rows) => res.send(rows)
   );
 });
 
-/* ---------------- SERVER ---------------- */
+// ---------- FRONTEND ROUTES ----------
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/index.html"));
+});
+
+app.get("/login", (req, res) => {
+  res.sendFile(path.join(__dirname, "public/login.html"));
+});
+
+// ---------- START SERVER ----------
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log("Server running on port", PORT);
 });
