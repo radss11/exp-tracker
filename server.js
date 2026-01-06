@@ -66,33 +66,41 @@ function auth(req, res, next) {
 
 // Signup
 app.post("/signup", (req, res) => {
-  const { email, password } = req.body;
+  const email = req.body.email.trim();
+  const password = req.body.password.trim();
 
   db.run(
     "INSERT INTO users (email, password) VALUES (?, ?)",
     [email, password],
     function (err) {
-      if (err) return res.status(400).send({ error: "User already exists" });
+      if (err) {
+        return res.status(400).send({ error: "User already exists" });
+      }
       res.send({ message: "Signup successful" });
     }
   );
 });
 
+
 // Login
 app.post("/login", (req, res) => {
-  const { email, password } = req.body;
+  const email = req.body.email.trim();
+  const password = req.body.password.trim();
 
   db.get(
     "SELECT * FROM users WHERE email=? AND password=?",
     [email, password],
     (err, user) => {
-      if (!user) return res.status(401).send({ error: "Invalid credentials" });
+      if (!user) {
+        return res.status(401).send({ error: "Invalid email or password" });
+      }
 
       const token = jwt.sign({ userId: user.id }, SECRET, { expiresIn: "1d" });
       res.send({ token });
     }
   );
 });
+
 
 // ---------- BUDGET ROUTES ----------
 
@@ -171,4 +179,10 @@ app.get("/login", (req, res) => {
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
+});
+
+app.get("/dev/reset-users", (req, res) => {
+  db.run("DELETE FROM users", () => {
+    res.send("All users deleted");
+  });
 });
