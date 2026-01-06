@@ -14,7 +14,7 @@
     .box {
       background: white;
       padding: 25px;
-      width: 300px;
+      width: 320px;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
@@ -22,6 +22,9 @@
       width: 100%;
       margin: 8px 0;
       padding: 8px;
+    }
+    button {
+      cursor: pointer;
     }
   </style>
 </head>
@@ -41,6 +44,11 @@
 
 <script>
 function login() {
+  if (!email.value || !password.value) {
+    alert("Enter email and password");
+    return;
+  }
+
   fetch("/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -55,12 +63,17 @@ function login() {
       localStorage.setItem("token", d.token);
       location.href = "/";
     } else {
-      alert("Invalid login");
+      alert(d.error || "Invalid login");
     }
   });
 }
 
 function signup() {
+  if (!email.value || !password.value) {
+    alert("Enter email and password");
+    return;
+  }
+
   fetch("/signup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -70,7 +83,13 @@ function signup() {
     })
   })
   .then(r => r.json())
-  .then(() => alert("Signup successful. Login now."));
+  .then(d => {
+    if (d.error) {
+      alert(d.error);
+    } else {
+      alert("Signup successful. Now login.");
+    }
+  });
 }
 </script>
 
